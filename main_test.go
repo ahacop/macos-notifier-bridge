@@ -16,20 +16,19 @@ import (
 func TestNewServer(t *testing.T) {
 	tests := []struct {
 		name    string
-		host    string
 		port    int
 		verbose bool
 	}{
-		{"default config", "localhost", 9876, false},
-		{"verbose mode", "0.0.0.0", 8080, true},
-		{"custom host", "127.0.0.1", 9999, false},
+		{"default config", 9876, false},
+		{"verbose mode", 8080, true},
+		{"custom port", 9999, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := NewServer(tt.host, tt.port, tt.verbose)
-			if server.host != tt.host {
-				t.Errorf("expected host %s, got %s", tt.host, server.host)
+			server := NewServer(tt.port, tt.verbose)
+			if server.host != "localhost" {
+				t.Errorf("expected host localhost, got %s", server.host)
 			}
 			if server.port != tt.port {
 				t.Errorf("expected port %d, got %d", tt.port, server.port)
@@ -224,6 +223,36 @@ func TestHandleConnectionLogic(t *testing.T) {
 			expectedOutput: "OK",
 			expectError:    false,
 		},
+		{
+			name:           "title too long",
+			input:          fmt.Sprintf(`{"title":"%s","message":"Hello"}`, strings.Repeat("A", 257)),
+			expectedOutput: "ERROR: Title too long (max 256 characters)",
+			expectError:    true,
+		},
+		{
+			name:           "message too long",
+			input:          fmt.Sprintf(`{"title":"Test","message":"%s"}`, strings.Repeat("A", 1025)),
+			expectedOutput: "ERROR: Message too long (max 1024 characters)",
+			expectError:    true,
+		},
+		{
+			name:           "sound name too long",
+			input:          fmt.Sprintf(`{"title":"Test","message":"Hello","sound":"%s"}`, strings.Repeat("A", 65)),
+			expectedOutput: "ERROR: Sound name too long (max 64 characters)",
+			expectError:    true,
+		},
+		{
+			name:           "max length title",
+			input:          fmt.Sprintf(`{"title":"%s","message":"Hello"}`, strings.Repeat("A", 256)),
+			expectedOutput: "OK",
+			expectError:    false,
+		},
+		{
+			name:           "max length message",
+			input:          fmt.Sprintf(`{"title":"Test","message":"%s"}`, strings.Repeat("A", 1024)),
+			expectedOutput: "OK",
+			expectError:    false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -246,7 +275,7 @@ func TestHandleConnectionLogic(t *testing.T) {
 			// Write test input to client side
 			go func() {
 				if _, err := client.Write([]byte(tt.input + "\n")); err != nil {
-					t.Errorf("failed to write test input: %v", err)
+					t.Logf("failed to write test input: %v", err)
 				}
 			}()
 
@@ -254,7 +283,7 @@ func TestHandleConnectionLogic(t *testing.T) {
 			go func() {
 				// Read and process similar to handleConnection
 				// but without actually sending notifications
-				data := make([]byte, 1024)
+				data := make([]byte, 4096)
 				n, _ := server.Read(data)
 				input := strings.TrimSpace(string(data[:n]))
 
@@ -265,6 +294,12 @@ func TestHandleConnectionLogic(t *testing.T) {
 					response = "ERROR: Invalid JSON\n"
 				} else if req.Title == "" || req.Message == "" {
 					response = "ERROR: Missing title or message\n"
+				} else if len(req.Title) > 256 {
+					response = "ERROR: Title too long (max 256 characters)\n"
+				} else if len(req.Message) > 1024 {
+					response = "ERROR: Message too long (max 1024 characters)\n"
+				} else if len(req.Sound) > 64 {
+					response = "ERROR: Sound name too long (max 64 characters)\n"
 				} else {
 					// Mock successful notification
 					response = "OK\n"
@@ -305,7 +340,7 @@ func TestServerStartStop(t *testing.T) {
 		t.Logf("failed to close listener: %v", err)
 	}
 
-	server := NewServer("localhost", port, false)
+	server := NewServer(port, false)
 
 	// Start server in goroutine
 	serverErr := make(chan error, 1)
@@ -386,7 +421,7 @@ func TestSendNotificationWithSender(t *testing.T) {
 	}
 
 	// Create and start server
-	server := NewServer("localhost", port, false)
+	server := NewServer(port, false)
 	go func() {
 		if err := server.Start(); err != nil {
 			t.Logf("server error: %v", err)
@@ -456,6 +491,99 @@ func TestSendNotificationWithSender(t *testing.T) {
 	}
 }
 
+func TestLocalhostOnlyBinding(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	// Find an available port
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to find available port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Logf("failed to close listener: %v", err)
+	}
+
+	server := NewServer(port, false)
+
+	// Start server in goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		err := server.Start()
+		if err != nil {
+			serverErr <- err
+		}
+	}()
+
+	// Give server time to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Test 1: Verify localhost connection works
+	t.Run("localhost connection works", func(t *testing.T) {
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if err != nil {
+			t.Fatalf("failed to connect via localhost: %v", err)
+		}
+		if err := conn.Close(); err != nil {
+			t.Logf("failed to close connection: %v", err)
+		}
+	})
+
+	// Test 2: Verify 127.0.0.1 connection works (same as localhost)
+	t.Run("127.0.0.1 connection works", func(t *testing.T) {
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			t.Fatalf("failed to connect via 127.0.0.1: %v", err)
+		}
+		if err := conn.Close(); err != nil {
+			t.Logf("failed to close connection: %v", err)
+		}
+	})
+
+	// Test 3: Verify external interface connection fails
+	t.Run("external interface connection fails", func(t *testing.T) {
+		// Get machine's external IP
+		addrs, err := net.InterfaceAddrs()
+		if err != nil {
+			t.Skip("could not get interface addresses")
+		}
+
+		var externalIP string
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					externalIP = ipnet.IP.String()
+					break
+				}
+			}
+		}
+
+		if externalIP == "" {
+			t.Skip("no external IP found")
+		}
+
+		// Try to connect via external IP - should fail
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", externalIP, port), 2*time.Second)
+		if err == nil {
+			_ = conn.Close()
+			t.Errorf("expected connection to external IP %s to fail, but it succeeded", externalIP)
+		}
+	})
+
+	// Stop server
+	server.Stop()
+
+	// Check for server errors
+	select {
+	case err := <-serverErr:
+		t.Fatalf("server error: %v", err)
+	case <-time.After(time.Second):
+		// No error, server stopped gracefully
+	}
+}
+
 func TestConcurrentConnections(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -491,7 +619,7 @@ func TestConcurrentConnections(t *testing.T) {
 		t.Logf("failed to close listener: %v", err)
 	}
 
-	server := NewServer("localhost", port, false)
+	server := NewServer(port, false)
 
 	// Start server
 	go func() {

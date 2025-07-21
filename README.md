@@ -175,9 +175,15 @@ notify "Build Complete" "Your project has been built successfully!"
 ### Command Line Flags
 
 - `--port, -p`: TCP port to listen on (default: 9876)
-- `--host, -h`: Host/IP to bind to (default: 0.0.0.0)
 - `--verbose, -v`: Enable verbose logging
 - `--version`: Display version information
+
+### Input Limits
+
+To prevent abuse, the following size limits are enforced:
+- **Title**: Maximum 256 characters
+- **Message**: Maximum 1024 characters
+- **Sound**: Maximum 64 characters
 
 ### As a Service
 
@@ -204,10 +210,14 @@ brew services list
 
 ## Security Considerations
 
-- By default, the server binds to all interfaces (0.0.0.0). For local-only access, use `--host localhost`
-- Consider implementing authentication if exposing to a network
+- The server binds exclusively to localhost (127.0.0.1) for security
+- All input fields have size limits to prevent abuse
 - The server includes a 30-second timeout for connections to prevent hanging
-- Rate limiting is recommended for production use
+- No authentication is implemented - suitable for local-only use
+- For additional security, consider:
+  - Running with restricted user permissions
+  - Implementing rate limiting via firewall rules
+  - Monitoring logs for suspicious activity
 
 ## Development
 
