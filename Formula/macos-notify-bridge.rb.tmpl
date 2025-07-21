@@ -19,6 +19,39 @@ class MacosNotifyBridge < Formula
 
   def install
     bin.install "macos-notify-bridge"
+
+    # Create the app bundle with custom icon in /Applications
+    # This ensures it's properly registered with macOS
+    app_path = "/Applications/MacOS Notify Bridge.app"
+    
+    # Remove existing app bundle if it exists (for upgrades)
+    if File.exist?(app_path)
+      FileUtils.rm_rf(app_path)
+      ohai "Removing existing app bundle for upgrade"
+    end
+    
+    system "bash", "scripts/setup-app-bundle.sh", "macos-notify-bridge-icon.png", "/Applications"
+  end
+
+  def post_install
+    # Reset Launch Services database to ensure the app is properly registered
+    # This is especially important after upgrades
+    app_path = "/Applications/MacOS Notify Bridge.app"
+    if File.exist?(app_path)
+      system "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", 
+             "-f", "-r", "-domain", "local", "-domain", "user", app_path
+      
+      ohai "App bundle registered with macOS"
+    end
+  end
+
+  def post_uninstall
+    # Remove the app bundle from /Applications
+    app_path = "/Applications/MacOS Notify Bridge.app"
+    if File.exist?(app_path)
+      FileUtils.rm_rf(app_path)
+      ohai "Removed #{app_path}"
+    end
   end
 
   service do
