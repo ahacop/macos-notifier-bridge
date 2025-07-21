@@ -1,16 +1,16 @@
 class MacosNotifyBridge < Formula
   desc "TCP server that bridges notifications to macOS"
   homepage "https://github.com/ahacop/macos-notify-bridge"
-  version "0.3.0"
+  version "0.4.0"
   license "GPL-3.0-only"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.3.0/macos-notify-bridge_0.3.0_darwin_arm64.tar.gz"
-      sha256 "cf7748ab9dbe9a67271ff558aa5fd7e7b3a0e0d8cff1cdebb25002a75fa22f85"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.4.0/macos-notify-bridge_0.4.0_darwin_arm64.tar.gz"
+      sha256 "e764badd81d4d9dbd57c98d587c028f14a400d5ea0a5084ec4040d627ed2a78a"
     else
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.3.0/macos-notify-bridge_0.3.0_darwin_x86_64.tar.gz"
-      sha256 "d6ae7e701efda52d217487cea4489c30f71dcd96b127486617d4dc34839b1ef8"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.4.0/macos-notify-bridge_0.4.0_darwin_x86_64.tar.gz"
+      sha256 "1aa6f41e4122dcb73f225d5f7aebbfb9e84a09818a1879f137f844e855b46a93"
     end
   end
 
@@ -19,6 +19,39 @@ class MacosNotifyBridge < Formula
 
   def install
     bin.install "macos-notify-bridge"
+
+    # Create the app bundle with custom icon in /Applications
+    # This ensures it's properly registered with macOS
+    app_path = "/Applications/MacOS Notify Bridge.app"
+    
+    # Remove existing app bundle if it exists (for upgrades)
+    if File.exist?(app_path)
+      FileUtils.rm_rf(app_path)
+      ohai "Removing existing app bundle for upgrade"
+    end
+    
+    system "bash", "scripts/setup-app-bundle.sh", "macos-notify-bridge-icon.png", "/Applications"
+  end
+
+  def post_install
+    # Reset Launch Services database to ensure the app is properly registered
+    # This is especially important after upgrades
+    app_path = "/Applications/MacOS Notify Bridge.app"
+    if File.exist?(app_path)
+      system "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", 
+             "-f", "-r", "-domain", "local", "-domain", "user", app_path
+      
+      ohai "App bundle registered with macOS"
+    end
+  end
+
+  def post_uninstall
+    # Remove the app bundle from /Applications
+    app_path = "/Applications/MacOS Notify Bridge.app"
+    if File.exist?(app_path)
+      FileUtils.rm_rf(app_path)
+      ohai "Removed #{app_path}"
+    end
   end
 
   service do
