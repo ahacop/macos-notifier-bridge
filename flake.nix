@@ -21,26 +21,55 @@
         packages = {
           notify-macos = pkgs.writeShellScriptBin "notify-macos" ''
             # Send notification to macOS host from NixOS VM
-            
+
             # Get host IP from environment or use default
             HOST_IP="''${MACOS_HOST_IP:-192.168.178.124}"
             PORT=9876
-            
-            # Check arguments
-            if [ $# -lt 1 ]; then
-                echo "Usage: notify-macos <message> [title]" >&2
+
+            # Parse arguments
+            MESSAGE=""
+            TITLE="NixOS Notification"
+            SOUND=""
+
+            # Simple argument parsing
+            while [[ $# -gt 0 ]]; do
+              case $1 in
+                --sound)
+                  SOUND="$2"
+                  shift 2
+                  ;;
+                *)
+                  if [ -z "$MESSAGE" ]; then
+                    MESSAGE="$1"
+                  else
+                    TITLE="$1"
+                  fi
+                  shift
+                  ;;
+              esac
+            done
+
+            # Check required arguments
+            if [ -z "$MESSAGE" ]; then
+                echo "Usage: notify-macos <message> [title] [--sound <sound>]" >&2
+                echo "Available sounds: Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Ping, Pop, Purr, Sosumi, Submarine, Tink" >&2
                 exit 1
             fi
-            
-            MESSAGE="$1"
-            TITLE="''${2:-NixOS Notification}"
-            
+
             # Create JSON payload
-            JSON=$(${pkgs.jq}/bin/jq -n \
-              --arg title "$TITLE" \
-              --arg message "$MESSAGE" \
-              '{title: $title, message: $message}')
-            
+            if [ -n "$SOUND" ]; then
+              JSON=$(${pkgs.jq}/bin/jq -n \
+                --arg title "$TITLE" \
+                --arg message "$MESSAGE" \
+                --arg sound "$SOUND" \
+                '{title: $title, message: $message, sound: $sound}')
+            else
+              JSON=$(${pkgs.jq}/bin/jq -n \
+                --arg title "$TITLE" \
+                --arg message "$MESSAGE" \
+                '{title: $title, message: $message}')
+            fi
+
             # Send notification using netcat
             echo "$JSON" | ${pkgs.netcat}/bin/nc -w 2 "$HOST_IP" "$PORT"
           '';
@@ -49,14 +78,13 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = with pkgs;
-            [
-              go
-              golangci-lint
-              goreleaser
-              gnumake
-              gotools  # includes goimports, godoc, etc.
-            ];
+          packages = with pkgs; [
+            go
+            golangci-lint
+            goreleaser
+            gnumake
+            gotools # includes goimports, godoc, etc.
+          ];
         };
       }
     );

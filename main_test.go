@@ -51,6 +51,7 @@ func TestNotificationRequestJSON(t *testing.T) {
 		valid   bool
 		title   string
 		message string
+		sound   string
 	}{
 		{
 			name:    "valid request",
@@ -92,6 +93,22 @@ func TestNotificationRequestJSON(t *testing.T) {
 			title:   "Test",
 			message: "Hello",
 		},
+		{
+			name:    "with sound field",
+			input:   `{"title":"Test","message":"Hello","sound":"Hero"}`,
+			valid:   true,
+			title:   "Test",
+			message: "Hello",
+			sound:   "Hero",
+		},
+		{
+			name:    "with empty sound field",
+			input:   `{"title":"Test","message":"Hello","sound":""}`,
+			valid:   true,
+			title:   "Test",
+			message: "Hello",
+			sound:   "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -109,6 +126,9 @@ func TestNotificationRequestJSON(t *testing.T) {
 				}
 				if req.Message != tt.message {
 					t.Errorf("expected message %q, got %q", tt.message, req.Message)
+				}
+				if req.Sound != tt.sound {
+					t.Errorf("expected sound %q, got %q", tt.sound, req.Sound)
 				}
 
 				// Check if it would be considered valid by our logic
@@ -197,6 +217,12 @@ func TestHandleConnectionLogic(t *testing.T) {
 			input:          `{"title":"Test","message":""}`,
 			expectedOutput: "ERROR: Missing title or message",
 			expectError:    true,
+		},
+		{
+			name:           "valid notification with sound",
+			input:          `{"title":"Test","message":"Hello","sound":"Hero"}`,
+			expectedOutput: "OK",
+			expectError:    false,
 		},
 	}
 

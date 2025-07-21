@@ -22,6 +22,7 @@ const version = "0.1.0"
 type NotificationRequest struct {
 	Title   string `json:"title"`
 	Message string `json:"message"`
+	Sound   string `json:"sound,omitempty"`
 }
 
 // Server represents the notification bridge server.
@@ -167,7 +168,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		return
 	}
 
-	if err := s.sendNotification(req.Title, req.Message); err != nil {
+	if err := s.sendNotification(req.Title, req.Message, req.Sound); err != nil {
 		if s.verbose {
 			log.Printf("Error sending notification: %v", err)
 		}
@@ -186,15 +187,20 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) sendNotification(title, message string) error {
-	cmd := exec.Command("terminal-notifier", "-title", title, "-message", message)
+func (s *Server) sendNotification(title, message, sound string) error {
+	args := []string{"-title", title, "-message", message}
+	if sound != "" {
+		args = append(args, "-sound", sound)
+	}
+
+	cmd := exec.Command("terminal-notifier", args...)
 
 	if s.verbose {
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("terminal-notifier failed: %w, output: %s", err, string(output))
 		}
-		log.Printf("Notification sent: %s - %s", title, message)
+		log.Printf("Notification sent: %s - %s (sound: %s)", title, message, sound)
 	} else {
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("terminal-notifier failed: %w", err)

@@ -131,7 +131,41 @@ exit 0
 		}
 	})
 
-	// Test 3: Connection timeout
+	// Test 3: Valid notification with sound
+	t.Run("valid notification with sound", func(t *testing.T) {
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if err != nil {
+			t.Fatalf("failed to connect: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := conn.Close(); err != nil {
+				t.Logf("failed to close connection: %v", err)
+			}
+		})
+
+		notification := NotificationRequest{
+			Title:   "Sound Test",
+			Message: "This notification has sound",
+			Sound:   "Hero",
+		}
+		data, _ := json.Marshal(notification)
+
+		if _, err := conn.Write(append(data, '\n')); err != nil {
+			t.Fatalf("failed to send notification: %v", err)
+		}
+
+		response := make([]byte, 1024)
+		n, err := conn.Read(response)
+		if err != nil {
+			t.Fatalf("failed to read response: %v", err)
+		}
+
+		if !strings.Contains(string(response[:n]), "OK") {
+			t.Errorf("expected OK response, got: %s", string(response[:n]))
+		}
+	})
+
+	// Test 4: Connection timeout
 	t.Run("connection timeout", func(t *testing.T) {
 		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 		if err != nil {
@@ -152,7 +186,7 @@ exit 0
 		}
 	})
 
-	// Test 4: Graceful shutdown
+	// Test 5: Graceful shutdown
 	t.Run("graceful shutdown", func(t *testing.T) {
 		// Send SIGTERM
 		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
@@ -180,6 +214,12 @@ exit 0
 	if logData, err := os.ReadFile(logPath); err == nil {
 		if !strings.Contains(string(logData), "Integration Test") {
 			t.Errorf("expected notification not found in log: %s", string(logData))
+		}
+		if !strings.Contains(string(logData), "Sound Test") {
+			t.Errorf("expected sound notification not found in log: %s", string(logData))
+		}
+		if !strings.Contains(string(logData), "-sound Hero") {
+			t.Errorf("expected sound parameter not found in log: %s", string(logData))
 		}
 	}
 }
