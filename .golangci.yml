@@ -1,0 +1,16 @@
+version: "2"
+
+run:
+  tests: true
+  timeout: 5m
+  build-tags:
+    - integration
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - revive

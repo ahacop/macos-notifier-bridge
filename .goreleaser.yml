@@ -1,0 +1,73 @@
+version: 2
+
+project_name: macos-notify-bridge
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: macos-notify-bridge
+    binary: macos-notify-bridge
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  github:
+    owner: ahacop
+    name: macos-notify-bridge
+  
+  draft: false
+  prerelease: auto
+  
+  header: |
+    ## macOS Notify Bridge {{ .Tag }}
+    
+    A lightweight TCP server that bridges network notification requests to native macOS notifications.
+
+  footer: |
+    ## Installation
+    
+    ### Via Homebrew
+    ```bash
+    brew tap ahacop/macos-notify-bridge
+    brew install macos-notify-bridge
+    ```
+    
+    ### Manual
+    Download the appropriate binary for your architecture and make it executable:
+    ```bash
+    chmod +x macos-notify-bridge
+    ```
+
