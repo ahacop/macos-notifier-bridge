@@ -218,8 +218,12 @@ exit 0
 		if !strings.Contains(string(logData), "Sound Test") {
 			t.Errorf("expected sound notification not found in log: %s", string(logData))
 		}
-		if !strings.Contains(string(logData), "-sound Hero") {
+		if !strings.Contains(string(logData), "Sound: Hero") {
 			t.Errorf("expected sound parameter not found in log: %s", string(logData))
+		}
+		// Verify -sender flag is always present
+		if !strings.Contains(string(logData), "Sender: com.ahacop.macos-notify-bridge") {
+			t.Errorf("expected sender parameter not found in log: %s", string(logData))
 		}
 	}
 }

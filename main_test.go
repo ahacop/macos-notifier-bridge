@@ -346,6 +346,116 @@ func TestServerStartStop(t *testing.T) {
 	}
 }
 
+func TestSendNotificationWithSender(t *testing.T) {
+	// Create temporary directory for mock
+	tempDir, err := os.MkdirTemp("", "notify-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("failed to remove temp dir: %v", err)
+		}
+	})
+
+	// Create mock terminal-notifier
+	_, err = testutil.CreateMockTerminalNotifier(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create mock terminal-notifier: %v", err)
+	}
+
+	// Update PATH to use our mock
+	origPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", tempDir+":"+origPath); err != nil {
+		t.Fatalf("failed to set PATH: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Setenv("PATH", origPath); err != nil {
+			t.Logf("failed to restore PATH: %v", err)
+		}
+	})
+
+	// Find available port
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to find available port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Logf("failed to close listener: %v", err)
+	}
+
+	// Create and start server
+	server := NewServer("localhost", port, false)
+	go func() {
+		if err := server.Start(); err != nil {
+			t.Logf("server error: %v", err)
+		}
+	}()
+	t.Cleanup(func() {
+		server.Stop()
+	})
+
+	// Give server time to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Send a notification
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+	defer func() {
+		if err := conn.Close(); err != nil {
+			t.Logf("failed to close connection: %v", err)
+		}
+	}()
+
+	notification := NotificationRequest{
+		Title:   "Test Title",
+		Message: "Test Message",
+		Sound:   "Basso",
+	}
+	data, _ := json.Marshal(notification)
+
+	if _, err := conn.Write(append(data, '\n')); err != nil {
+		t.Fatalf("failed to send notification: %v", err)
+	}
+
+	// Read response
+	response := make([]byte, 1024)
+	n, err := conn.Read(response)
+	if err != nil {
+		t.Fatalf("failed to read response: %v", err)
+	}
+
+	if !strings.Contains(string(response[:n]), "OK") {
+		t.Errorf("expected OK response, got: %s", string(response[:n]))
+	}
+
+	// Give time for notification to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	// Check the log to verify -sender flag was used
+	logData, err := testutil.ReadNotificationLog(tempDir)
+	if err != nil {
+		t.Fatalf("failed to read notification log: %v", err)
+	}
+
+	// Verify the notification was sent with correct parameters
+	if !strings.Contains(logData, "Title: Test Title") {
+		t.Errorf("expected title not found in log: %s", logData)
+	}
+	if !strings.Contains(logData, "Message: Test Message") {
+		t.Errorf("expected message not found in log: %s", logData)
+	}
+	if !strings.Contains(logData, "Sender: com.ahacop.macos-notify-bridge") {
+		t.Errorf("expected sender not found in log: %s", logData)
+	}
+	if !strings.Contains(logData, "Sound: Basso") {
+		t.Errorf("expected sound not found in log: %s", logData)
+	}
+}
+
 func TestConcurrentConnections(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")

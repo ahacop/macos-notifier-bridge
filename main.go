@@ -188,7 +188,11 @@ func (s *Server) handleConnection(conn net.Conn) {
 }
 
 func (s *Server) sendNotification(title, message, sound string) error {
-	args := []string{"-title", title, "-message", message}
+	args := []string{
+		"-title", title,
+		"-message", message,
+		"-sender", "com.ahacop.macos-notify-bridge",
+	}
 	if sound != "" {
 		args = append(args, "-sound", sound)
 	}

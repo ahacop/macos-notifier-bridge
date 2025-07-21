@@ -19,6 +19,10 @@ class MacosNotifyBridge < Formula
 
   def install
     bin.install "macos-notify-bridge"
+
+    # Create the app bundle with custom icon in the formula's prefix
+    # This keeps it out of /Applications but still accessible to terminal-notifier
+    system "bash", "scripts/setup-app-bundle.sh", "macos-notify-bridge-icon.png", prefix
   end
 
   service do

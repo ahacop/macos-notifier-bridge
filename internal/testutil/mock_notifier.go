@@ -19,6 +19,8 @@ func CreateMockTerminalNotifier(dir string) (string, error) {
 # Parse arguments
 TITLE=""
 MESSAGE=""
+SENDER=""
+SOUND=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -30,6 +32,14 @@ while [ "$#" -gt 0 ]; do
       MESSAGE="$2"
       shift 2
       ;;
+    -sender)
+      SENDER="$2"
+      shift 2
+      ;;
+    -sound)
+      SOUND="$2"
+      shift 2
+      ;;
     *)
       shift
       ;;
@@ -37,7 +47,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 # Log the notification
-echo "$(date '+%%Y-%%m-%%d %%H:%%M:%%S') - Title: $TITLE, Message: $MESSAGE" >> %s
+echo "$(date '+%%Y-%%m-%%d %%H:%%M:%%S') - Title: $TITLE, Message: $MESSAGE, Sender: $SENDER, Sound: $SOUND" >> %s
 
 # Exit successfully
 exit 0
