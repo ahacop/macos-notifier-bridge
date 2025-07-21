@@ -84,11 +84,30 @@ else
 fi
 
 # Move the app bundle to the destination directory
-echo "Moving app bundle to ${DEST_DIR}..."
-mv "${APP_DIR}" "${DEST_DIR}/"
+if [ -n "${DEST_DIR}" ]; then
+	echo "Moving app bundle to ${DEST_DIR}..."
+	if ! mv "${APP_DIR}" "${DEST_DIR}/" 2>/dev/null; then
+		# Try with sudo if regular move fails
+		if [ -t 0 ]; then
+			echo "Permission denied. Trying with sudo..."
+			sudo mv "${APP_DIR}" "${DEST_DIR}/"
+		else
+			echo "Error: Could not move app bundle to ${DEST_DIR} - insufficient permissions"
+			echo "The app bundle remains at: ${APP_DIR}"
+			exit 1
+		fi
+	fi
+	FINAL_APP_PATH="${DEST_DIR}/${APP_NAME}.app"
+else
+	# No destination specified, leave in temp directory
+	FINAL_APP_PATH="${APP_DIR}"
+	echo "Warning: No destination directory specified, app bundle created at ${APP_DIR}"
+fi
 
-# Cleanup
-rm -rf "${TEMP_DIR}"
+# Cleanup temp directory if we successfully moved the app
+if [ "${FINAL_APP_PATH}" != "${APP_DIR}" ]; then
+	rm -rf "${TEMP_DIR}"
+fi
 
-echo "${APP_NAME}.app bundle created at ${DEST_DIR}/${APP_NAME}.app"
+echo "${APP_NAME}.app bundle created at ${FINAL_APP_PATH}"
 echo "You can now use -sender ${BUNDLE_ID} with terminal-notifier"
