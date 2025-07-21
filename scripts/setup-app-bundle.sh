@@ -4,8 +4,12 @@ set -euo pipefail
 APP_NAME="MacOS Notify Bridge"
 # First argument is icon path, second (optional) is app directory location
 ICON_SOURCE="${1}"
-APP_DIR="${2}/${APP_NAME}.app"
+DEST_DIR="${2}"
 BUNDLE_ID="com.ahacop.macos-notify-bridge"
+
+# Create app bundle in a temporary directory first
+TEMP_DIR=$(mktemp -d)
+APP_DIR="${TEMP_DIR}/${APP_NAME}.app"
 
 echo "Setting up ${APP_NAME}.app bundle..."
 
@@ -79,5 +83,12 @@ else
 	echo "Warning: Icon source '${ICON_SOURCE}' not found"
 fi
 
-echo "${APP_NAME}.app bundle created at ${APP_DIR}"
+# Move the app bundle to the destination directory
+echo "Moving app bundle to ${DEST_DIR}..."
+mv "${APP_DIR}" "${DEST_DIR}/"
+
+# Cleanup
+rm -rf "${TEMP_DIR}"
+
+echo "${APP_NAME}.app bundle created at ${DEST_DIR}/${APP_NAME}.app"
 echo "You can now use -sender ${BUNDLE_ID} with terminal-notifier"
