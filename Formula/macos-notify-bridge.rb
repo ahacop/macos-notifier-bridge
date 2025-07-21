@@ -1,16 +1,16 @@
 class MacosNotifyBridge < Formula
   desc "TCP server that bridges notifications to macOS"
   homepage "https://github.com/ahacop/macos-notify-bridge"
-  version "0.2.0"
+  version "0.3.0"
   license "GPL-3.0-only"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.2.0/macos-notify-bridge_0.2.0_darwin_arm64.tar.gz"
-      sha256 "76dc231e397d6c8f9878b842ec9facc9682803105f1d5e78aac79e4d3511b932"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.3.0/macos-notify-bridge_0.3.0_darwin_arm64.tar.gz"
+      sha256 "cf7748ab9dbe9a67271ff558aa5fd7e7b3a0e0d8cff1cdebb25002a75fa22f85"
     else
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.2.0/macos-notify-bridge_0.2.0_darwin_x86_64.tar.gz"
-      sha256 "15d8786bbcd181178403ca846f849c19d3bd2260e9213b0c424e3ec60ab0f5a5"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.3.0/macos-notify-bridge_0.3.0_darwin_x86_64.tar.gz"
+      sha256 "d6ae7e701efda52d217487cea4489c30f71dcd96b127486617d4dc34839b1ef8"
     end
   end
 
@@ -19,10 +19,6 @@ class MacosNotifyBridge < Formula
 
   def install
     bin.install "macos-notify-bridge"
-
-    # Create the app bundle with custom icon in the formula's prefix
-    # This keeps it out of /Applications but still accessible to terminal-notifier
-    system "bash", "scripts/setup-app-bundle.sh", "macos-notify-bridge-icon.png", prefix
   end
 
   service do
