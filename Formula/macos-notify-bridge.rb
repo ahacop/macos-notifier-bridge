@@ -1,16 +1,16 @@
 class MacosNotifyBridge < Formula
   desc "TCP server that bridges notifications to macOS"
   homepage "https://github.com/ahacop/macos-notify-bridge"
-  version "0.4.0"
+  version "0.5.0"
   license "GPL-3.0-only"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.4.0/macos-notify-bridge_0.4.0_darwin_arm64.tar.gz"
-      sha256 "e764badd81d4d9dbd57c98d587c028f14a400d5ea0a5084ec4040d627ed2a78a"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.5.0/macos-notify-bridge_0.5.0_darwin_arm64.tar.gz"
+      sha256 "ae5b3b3f30598d8a3be8a344d49f98b15fce3a7b97e44d17d8ff23640395e921"
     else
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.4.0/macos-notify-bridge_0.4.0_darwin_x86_64.tar.gz"
-      sha256 "1aa6f41e4122dcb73f225d5f7aebbfb9e84a09818a1879f137f844e855b46a93"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.5.0/macos-notify-bridge_0.5.0_darwin_x86_64.tar.gz"
+      sha256 "874d548a0d234128c41bcd74de1a5aa14b6ae8d8528891047183d88eb2d7dbbd"
     end
   end
 
