@@ -41,7 +41,7 @@
                 *)
                   if [ -z "$MESSAGE" ]; then
                     MESSAGE="$1"
-                  else
+                  elif [ "$TITLE" = "NixOS Notification" ]; then
                     TITLE="$1"
                   fi
                   shift
@@ -58,13 +58,13 @@
 
             # Create JSON payload
             if [ -n "$SOUND" ]; then
-              JSON=$(${pkgs.jq}/bin/jq -n \
+              JSON=$(${pkgs.jq}/bin/jq -nc \
                 --arg title "$TITLE" \
                 --arg message "$MESSAGE" \
                 --arg sound "$SOUND" \
                 '{title: $title, message: $message, sound: $sound}')
             else
-              JSON=$(${pkgs.jq}/bin/jq -n \
+              JSON=$(${pkgs.jq}/bin/jq -nc \
                 --arg title "$TITLE" \
                 --arg message "$MESSAGE" \
                 '{title: $title, message: $message}')
