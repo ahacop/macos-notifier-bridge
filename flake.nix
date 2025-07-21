@@ -70,8 +70,20 @@
                 '{title: $title, message: $message}')
             fi
 
-            # Send notification using netcat
-            echo "$JSON" | ${pkgs.netcat}/bin/nc -w 2 "$HOST_IP" "$PORT"
+            # Send notification using netcat and capture response
+            RESPONSE=$(echo "$JSON" | ${pkgs.netcat}/bin/nc -w 2 "$HOST_IP" "$PORT" 2>&1)
+
+            # Check if response contains OK
+            if echo "$RESPONSE" | grep -q "^OK"; then
+              exit 0
+            elif echo "$RESPONSE" | grep -q "^ERROR"; then
+              echo "$RESPONSE" >&2
+              exit 1
+            else
+              # If no response or connection failed
+              echo "Failed to send notification" >&2
+              exit 1
+            fi
           '';
 
           default = self.packages.${system}.notify-macos;
