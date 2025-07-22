@@ -1,16 +1,16 @@
 class MacosNotifyBridge < Formula
   desc "TCP server that bridges notifications to macOS"
   homepage "https://github.com/ahacop/macos-notify-bridge"
-  version "0.7.0"
+  version "0.8.0"
   license "GPL-3.0-only"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.7.0/macos-notify-bridge_0.7.0_darwin_arm64.tar.gz"
-      sha256 "94aab97892dd2e749dfff6253c90b3690eeee94a85498afa3c981fda5dc8bac1"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.8.0/macos-notify-bridge_0.8.0_darwin_arm64.tar.gz"
+      sha256 "5470d912af16cdd7d5ac7ae57db73fedd4b8b6188d90d00a91b5f03c3e37de27"
     else
-      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.7.0/macos-notify-bridge_0.7.0_darwin_x86_64.tar.gz"
-      sha256 "a38edf2312e6c688d2d32f0fa48fbabf31c6f9bab5838c948757808729fb9aff"
+      url "https://github.com/ahacop/macos-notify-bridge/releases/download/v0.8.0/macos-notify-bridge_0.8.0_darwin_x86_64.tar.gz"
+      sha256 "c91d830cbdfff9e4af3565d2fb55855dae8a4d86210dde3d5ac7d4ed7d4bde15"
     end
   end
 
@@ -96,7 +96,7 @@ class MacosNotifyBridge < Formula
   end
 
   service do
-    run [opt_bin/"macos-notify-bridge", "--auto-detect-bridges"]
+    run [opt_bin/"macos-notify-bridge"]
     keep_alive true
     log_path var/"log/macos-notify-bridge.log"
     error_log_path var/"log/macos-notify-bridge.log"
@@ -134,7 +134,7 @@ class MacosNotifyBridge < Formula
       Or run it manually:
         macos-notify-bridge
 
-      The service will listen on port 9876 and automatically detect VM bridge interfaces.
+      The service will listen on port 9876 by default.
 
       The MacOS Notify Bridge app bundle is installed at:
         #{homebrew_app}
