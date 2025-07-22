@@ -96,7 +96,7 @@ class MacosNotifyBridge < Formula
   end
 
   service do
-    run [opt_bin/"macos-notify-bridge"]
+    run [opt_bin/"macos-notify-bridge", "--auto-detect-bridges"]
     keep_alive true
     log_path var/"log/macos-notify-bridge.log"
     error_log_path var/"log/macos-notify-bridge.log"
@@ -134,7 +134,7 @@ class MacosNotifyBridge < Formula
       Or run it manually:
         macos-notify-bridge
 
-      The service will listen on port 9876 by default.
+      The service will listen on port 9876 and automatically detect VM bridge interfaces.
 
       The MacOS Notify Bridge app bundle is installed at:
         #{homebrew_app}

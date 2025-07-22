@@ -7,6 +7,7 @@ A lightweight TCP server that bridges network notification requests to native ma
 - 🚀 Simple TCP server listening for JSON notification requests
 - 🔔 Native macOS notifications via `terminal-notifier`
 - 🔧 Configurable port and host binding
+- 🌐 Automatic VM bridge interface detection for VM connectivity
 - 📝 Verbose logging mode
 - 🛡️ Graceful shutdown handling
 - 🍺 Easy installation via Homebrew
@@ -55,7 +56,7 @@ Download the latest release from the [releases page](https://github.com/ahacop/m
 ### Starting the Server
 
 ```bash
-# Default configuration (port 9876, all interfaces)
+# Default configuration (port 9876, localhost only)
 macos-notify-bridge
 
 # Custom port
@@ -63,10 +64,15 @@ macos-notify-bridge --port 8080
 # or
 macos-notify-bridge -p 8080
 
-# Bind to localhost only
-macos-notify-bridge --host localhost
+# Automatically detect and bind to VM bridge interfaces
+macos-notify-bridge --auto-detect-bridges
 # or
-macos-notify-bridge -h localhost
+macos-notify-bridge -a
+
+# Bind to specific addresses (can be used multiple times)
+macos-notify-bridge --bind localhost --bind 192.168.122.1
+# or
+macos-notify-bridge -b localhost -b 192.168.122.1
 
 # Enable verbose logging
 macos-notify-bridge --verbose
@@ -116,7 +122,7 @@ import json
 
 def send_notification(title, message, host='localhost', port=9876):
     data = json.dumps({'title': title, 'message': message}) + '\n'
-    
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((host, port))
         s.sendall(data.encode())
@@ -131,28 +137,28 @@ print(f"Server response: {result}")
 #### Using Node.js
 
 ```javascript
-const net = require('net');
+const net = require("net");
 
-function sendNotification(title, message, host = 'localhost', port = 9876) {
+function sendNotification(title, message, host = "localhost", port = 9876) {
   return new Promise((resolve, reject) => {
     const client = net.createConnection({ port, host }, () => {
-      const data = JSON.stringify({ title, message }) + '\n';
+      const data = JSON.stringify({ title, message }) + "\n";
       client.write(data);
     });
 
-    client.on('data', (data) => {
+    client.on("data", (data) => {
       resolve(data.toString().trim());
       client.end();
     });
 
-    client.on('error', reject);
+    client.on("error", reject);
   });
 }
 
 // Send a notification
-sendNotification('Node.js Alert', 'Build completed!')
-  .then(response => console.log('Server response:', response))
-  .catch(err => console.error('Error:', err));
+sendNotification("Node.js Alert", "Build completed!")
+  .then((response) => console.log("Server response:", response))
+  .catch((err) => console.error("Error:", err));
 ```
 
 #### Using Bash Function
@@ -175,19 +181,55 @@ notify "Build Complete" "Your project has been built successfully!"
 ### Command Line Flags
 
 - `--port, -p`: TCP port to listen on (default: 9876)
+- `--auto-detect-bridges, -a`: Automatically detect and bind to VM bridge interfaces
+- `--bind, -b`: Bind to specific address (can be used multiple times)
 - `--verbose, -v`: Enable verbose logging
 - `--version`: Display version information
 
 ### Input Limits
 
 To prevent abuse, the following size limits are enforced:
+
 - **Title**: Maximum 256 characters
 - **Message**: Maximum 1024 characters
 - **Sound**: Maximum 64 characters
 
+### VM Connectivity
+
+The server supports automatic detection of VM bridge interfaces, allowing notifications to be sent from virtual machines running on the same host:
+
+```bash
+# Enable automatic VM bridge detection
+macos-notify-bridge --auto-detect-bridges
+```
+
+This will automatically bind to common VM bridge interfaces:
+
+- `virbr*` - libvirt/KVM/QEMU bridges
+- `vmnet*` - VMware bridges
+- `vboxnet*` - VirtualBox host-only networks
+- `docker0` - Docker default bridge
+- `br-*` - Docker custom bridges
+
+You can also manually specify which addresses to bind to:
+
+```bash
+# Bind to specific interfaces
+macos-notify-bridge --bind localhost --bind 192.168.122.1
+```
+
+When running with `--verbose`, the server will log which interfaces it's listening on:
+
+```
+Server listening on localhost:9876
+Server listening on 192.168.122.1:9876
+Server listening on 172.17.0.1:9876
+```
+
 ### As a Service
 
 When installed via Homebrew, the service will:
+
 - Start automatically on system boot
 - Log to `/usr/local/var/log/macos-notify-bridge.log`
 - Restart automatically if it crashes
@@ -210,7 +252,8 @@ brew services list
 
 ## Security Considerations
 
-- The server binds exclusively to localhost (127.0.0.1) for security
+- By default, the server binds exclusively to localhost (127.0.0.1) for security
+- When using `--auto-detect-bridges`, the server will also bind to VM bridge interfaces (virbr*, vmnet*, vboxnet*, docker0, br-*)
 - All input fields have size limits to prevent abuse
 - The server includes a 30-second timeout for connections to prevent hanging
 - No authentication is implemented - suitable for local-only use
@@ -218,6 +261,7 @@ brew services list
   - Running with restricted user permissions
   - Implementing rate limiting via firewall rules
   - Monitoring logs for suspicious activity
+  - Using `--bind` to explicitly specify allowed interfaces instead of auto-detection
 
 ## Development
 
@@ -329,12 +373,13 @@ git push origin v0.1.0
 The project uses GitHub Actions for continuous integration:
 
 - **CI Pipeline**: Runs on every push and pull request
+
   - Linting with golangci-lint
   - Unit and integration tests
   - Multi-platform builds
   - Code coverage reporting
 
-- **Release Pipeline**: Runs on version tags (v*.*.*)
+- **Release Pipeline**: Runs on version tags (v*.*.\*)
   - Automated release creation
   - Binary distribution
   - Homebrew formula updates
@@ -342,15 +387,18 @@ The project uses GitHub Actions for continuous integration:
 ## Troubleshooting
 
 ### Server won't start
+
 - Check if the port is already in use: `lsof -i :9876`
 - Ensure `terminal-notifier` is installed: `which terminal-notifier`
 
 ### Notifications not appearing
+
 - Check macOS notification settings for Terminal
 - Run with `--verbose` flag to see detailed logs
 - Ensure notification JSON is properly formatted
 
 ### Connection refused
+
 - Verify the server is running: `ps aux | grep macos-notify-bridge`
 - Check firewall settings if connecting from another machine
 
