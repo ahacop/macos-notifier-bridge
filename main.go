@@ -18,12 +18,6 @@ import (
 
 const version = "0.1.0"
 
-const (
-	maxTitleLength   = 256
-	maxMessageLength = 1024
-	maxSoundLength   = 64
-)
-
 // NotificationRequest represents a notification request from a client.
 type NotificationRequest struct {
 	Title   string `json:"title"`
@@ -42,9 +36,9 @@ type Server struct {
 }
 
 // NewServer creates a new notification bridge server instance.
-func NewServer(port int, verbose bool) *Server {
+func NewServer(host string, port int, verbose bool) *Server {
 	return &Server{
-		host:     "localhost",
+		host:     host,
 		port:     port,
 		verbose:  verbose,
 		shutdown: make(chan struct{}),
@@ -174,32 +168,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 		return
 	}
 
-	// Validate input lengths
-	if len(req.Title) > maxTitleLength {
-		if _, err := fmt.Fprintf(conn, "ERROR: Title too long (max %d characters)\n", maxTitleLength); err != nil {
-			if s.verbose {
-				log.Printf("Error writing error response: %v", err)
-			}
-		}
-		return
-	}
-	if len(req.Message) > maxMessageLength {
-		if _, err := fmt.Fprintf(conn, "ERROR: Message too long (max %d characters)\n", maxMessageLength); err != nil {
-			if s.verbose {
-				log.Printf("Error writing error response: %v", err)
-			}
-		}
-		return
-	}
-	if len(req.Sound) > maxSoundLength {
-		if _, err := fmt.Fprintf(conn, "ERROR: Sound name too long (max %d characters)\n", maxSoundLength); err != nil {
-			if s.verbose {
-				log.Printf("Error writing error response: %v", err)
-			}
-		}
-		return
-	}
-
 	if err := s.sendNotification(req.Title, req.Message, req.Sound); err != nil {
 		if s.verbose {
 			log.Printf("Error sending notification: %v", err)
@@ -250,6 +218,8 @@ func main() {
 	var (
 		port        = flag.Int("port", 9876, "Port to listen on")
 		portP       = flag.Int("p", 9876, "Port to listen on (short)")
+		host        = flag.String("host", "0.0.0.0", "Host to bind to")
+		hostH       = flag.String("h", "0.0.0.0", "Host to bind to (short)")
 		verbose     = flag.Bool("verbose", false, "Enable verbose logging")
 		verboseV    = flag.Bool("v", false, "Enable verbose logging (short)")
 		showVersion = flag.Bool("version", false, "Show version")
@@ -265,6 +235,9 @@ func main() {
 	// Use short flags if they were explicitly set
 	if isFlagPassed("p") {
 		*port = *portP
+	}
+	if isFlagPassed("h") {
+		*host = *hostH
 	}
 	if isFlagPassed("v") {
 		*verbose = *verboseV
@@ -283,7 +256,7 @@ func main() {
 		}
 	}
 
-	server := NewServer(*port, *verbose)
+	server := NewServer(*host, *port, *verbose)
 	if err := server.Start(); err != nil {
 		log.Fatal(err)
 	}
