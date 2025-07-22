@@ -26,9 +26,9 @@ func TestNewServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := NewServer(tt.port, tt.verbose, nil, false)
-			if len(server.bindAddresses) != 0 {
-				t.Errorf("expected no explicit bind addresses, got %v", server.bindAddresses)
+			server := NewServer(tt.port, tt.verbose)
+			if server.host != "localhost" {
+				t.Errorf("expected host localhost, got %s", server.host)
 			}
 			if server.port != tt.port {
 				t.Errorf("expected port %d, got %d", tt.port, server.port)
@@ -340,7 +340,7 @@ func TestServerStartStop(t *testing.T) {
 		t.Logf("failed to close listener: %v", err)
 	}
 
-	server := NewServer(port, false, nil, false)
+	server := NewServer(port, false)
 
 	// Start server in goroutine
 	serverErr := make(chan error, 1)
@@ -421,7 +421,7 @@ func TestSendNotificationWithSender(t *testing.T) {
 	}
 
 	// Create and start server
-	server := NewServer(port, false, nil, false)
+	server := NewServer(port, false)
 	go func() {
 		if err := server.Start(); err != nil {
 			t.Logf("server error: %v", err)
@@ -506,7 +506,7 @@ func TestLocalhostOnlyBinding(t *testing.T) {
 		t.Logf("failed to close listener: %v", err)
 	}
 
-	server := NewServer(port, false, nil, false)
+	server := NewServer(port, false)
 
 	// Start server in goroutine
 	serverErr := make(chan error, 1)
@@ -619,7 +619,7 @@ func TestConcurrentConnections(t *testing.T) {
 		t.Logf("failed to close listener: %v", err)
 	}
 
-	server := NewServer(port, false, nil, false)
+	server := NewServer(port, false)
 
 	// Start server
 	go func() {

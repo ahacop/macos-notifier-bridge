@@ -14,8 +14,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/ahacop/macos-notify-bridge/internal/netutil"
 )
 
 const version = "0.1.0"
@@ -26,18 +24,6 @@ const (
 	maxSoundLength   = 64
 )
 
-// arrayFlags allows multiple values for a flag
-type arrayFlags []string
-
-func (a *arrayFlags) String() string {
-	return strings.Join(*a, ",")
-}
-
-func (a *arrayFlags) Set(value string) error {
-	*a = append(*a, value)
-	return nil
-}
-
 // NotificationRequest represents a notification request from a client.
 type NotificationRequest struct {
 	Title   string `json:"title"`
@@ -47,59 +33,36 @@ type NotificationRequest struct {
 
 // Server represents the notification bridge server.
 type Server struct {
-	bindAddresses     []string
-	port              int
-	verbose           bool
-	autoDetectBridges bool
-	listeners         []net.Listener
-	wg                sync.WaitGroup
-	shutdown          chan struct{}
-	listenerErrors    chan error
+	host     string
+	port     int
+	verbose  bool
+	listener net.Listener
+	wg       sync.WaitGroup
+	shutdown chan struct{}
 }
 
 // NewServer creates a new notification bridge server instance.
-func NewServer(port int, verbose bool, bindAddresses []string, autoDetectBridges bool) *Server {
+func NewServer(port int, verbose bool) *Server {
 	return &Server{
-		bindAddresses:     bindAddresses,
-		port:              port,
-		verbose:           verbose,
-		autoDetectBridges: autoDetectBridges,
-		shutdown:          make(chan struct{}),
-		listenerErrors:    make(chan error, 10),
+		host:     "localhost",
+		port:     port,
+		verbose:  verbose,
+		shutdown: make(chan struct{}),
 	}
 }
 
 // Start starts the server and begins listening for connections.
 func (s *Server) Start() error {
-	// Get all bind addresses
-	addresses, err := s.getBindAddresses()
+	addr := fmt.Sprintf("%s:%d", s.host, s.port)
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("failed to get bind addresses: %w", err)
+		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
+	s.listener = listener
 
-	if len(addresses) == 0 {
-		return fmt.Errorf("no bind addresses available")
-	}
+	log.Printf("Server listening on %s", addr)
 
-	// Create listeners for each address
-	for _, bindAddr := range addresses {
-		addr := fmt.Sprintf("%s:%d", bindAddr, s.port)
-		listener, err := net.Listen("tcp", addr)
-		if err != nil {
-			// Log error but continue with other addresses
-			log.Printf("Failed to listen on %s: %v", addr, err)
-			continue
-		}
-		s.listeners = append(s.listeners, listener)
-		log.Printf("Server listening on %s", addr)
-
-		// Start accepting connections on this listener
-		go s.acceptConnections(listener)
-	}
-
-	if len(s.listeners) == 0 {
-		return fmt.Errorf("failed to create any listeners")
-	}
+	go s.acceptConnections()
 
 	// Wait for shutdown signal
 	sigChan := make(chan os.Signal, 1)
@@ -114,8 +77,8 @@ func (s *Server) Start() error {
 // Stop gracefully shuts down the server.
 func (s *Server) Stop() {
 	close(s.shutdown)
-	for _, listener := range s.listeners {
-		if err := listener.Close(); err != nil {
+	if s.listener != nil {
+		if err := s.listener.Close(); err != nil {
 			if s.verbose {
 				log.Printf("Error closing listener: %v", err)
 			}
@@ -125,24 +88,13 @@ func (s *Server) Stop() {
 	log.Println("Server stopped")
 }
 
-// getBindAddresses returns the list of addresses to bind to
-func (s *Server) getBindAddresses() ([]string, error) {
-	if len(s.bindAddresses) > 0 {
-		// Use explicitly provided addresses
-		return s.bindAddresses, nil
-	}
-
-	// Use auto-detection or default
-	return netutil.GetAllBindAddresses(s.autoDetectBridges)
-}
-
-func (s *Server) acceptConnections(listener net.Listener) {
+func (s *Server) acceptConnections() {
 	for {
 		select {
 		case <-s.shutdown:
 			return
 		default:
-			conn, err := listener.Accept()
+			conn, err := s.listener.Accept()
 			if err != nil {
 				select {
 				case <-s.shutdown:
@@ -296,19 +248,12 @@ func (s *Server) sendNotification(title, message, sound string) error {
 
 func main() {
 	var (
-		port              = flag.Int("port", 9876, "Port to listen on")
-		portP             = flag.Int("p", 9876, "Port to listen on (short)")
-		verbose           = flag.Bool("verbose", false, "Enable verbose logging")
-		verboseV          = flag.Bool("v", false, "Enable verbose logging (short)")
-		showVersion       = flag.Bool("version", false, "Show version")
-		autoDetectBridges = flag.Bool("auto-detect-bridges", false, "Automatically detect and bind to VM bridge interfaces")
-		autoDetectA       = flag.Bool("a", false, "Automatically detect and bind to VM bridge interfaces (short)")
+		port        = flag.Int("port", 9876, "Port to listen on")
+		portP       = flag.Int("p", 9876, "Port to listen on (short)")
+		verbose     = flag.Bool("verbose", false, "Enable verbose logging")
+		verboseV    = flag.Bool("v", false, "Enable verbose logging (short)")
+		showVersion = flag.Bool("version", false, "Show version")
 	)
-
-	// Custom flag for multiple bind addresses
-	var bindAddresses arrayFlags
-	flag.Var(&bindAddresses, "bind", "Bind address (can be specified multiple times)")
-	flag.Var(&bindAddresses, "b", "Bind address (can be specified multiple times, short)")
 
 	flag.Parse()
 
@@ -324,9 +269,6 @@ func main() {
 	if isFlagPassed("v") {
 		*verbose = *verboseV
 	}
-	if isFlagPassed("a") {
-		*autoDetectBridges = *autoDetectA
-	}
 
 	// Check if terminal-notifier is available
 	if _, err := exec.LookPath("terminal-notifier"); err != nil {
@@ -341,26 +283,7 @@ func main() {
 		}
 	}
 
-	// Merge bind addresses from both flags
-	var allBindAddresses []string
-	for _, addr := range bindAddresses {
-		allBindAddresses = append(allBindAddresses, addr)
-	}
-
-	// Handle short bind flag
-	var bindAddressesShort arrayFlags
-	flag.VisitAll(func(f *flag.Flag) {
-		if f.Name == "b" && f.Value != nil {
-			if av, ok := f.Value.(*arrayFlags); ok {
-				bindAddressesShort = *av
-			}
-		}
-	})
-	for _, addr := range bindAddressesShort {
-		allBindAddresses = append(allBindAddresses, addr)
-	}
-
-	server := NewServer(*port, *verbose, allBindAddresses, *autoDetectBridges)
+	server := NewServer(*port, *verbose)
 	if err := server.Start(); err != nil {
 		log.Fatal(err)
 	}
